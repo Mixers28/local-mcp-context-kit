@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Session (Agent)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "./scripts/session-helper.ps1",
+        "-Mode",
+        "Start",
+        "-OpenDocs"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "End Session (Agent + Commit)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "./scripts/session-helper.ps1",
+        "-Mode",
+        "End"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
