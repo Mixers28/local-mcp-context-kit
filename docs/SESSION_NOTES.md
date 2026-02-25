@@ -3,6 +3,21 @@
 > Rolling log of what happened in each focused work session.  
 > Append-only. Do not delete past sessions.
 
+<!-- SUMMARY_START -->
+**Latest Summary (auto-maintained by Agent):**
+- Added required SPEC + Invariants to handoff packs and a `preflight` validation command.
+- Updated docs and templates to reflect the new requirements and workflow.
+- Next step is adding tests and validating the full session flow.
+<!-- SUMMARY_END -->
+
+---
+
+## Maintenance Rules (reduce drift)
+
+- Append-only entries; never rewrite history.
+- Update this summary block every session with the last 1–3 sessions.
+- Roll up stable decisions to PROJECT_CONTEXT and active tasks to NOW.
+
 ---
 
 ## Example Entry
@@ -36,6 +51,31 @@
 
 ## Session Template (Copy/Paste for each new session)
 ## Recent Sessions (last 3-5)
+
+### 2026-02-04
+
+**Participants:** User, Codex Agent  
+**Branch:** main  
+
+### What we worked on
+- Added required SPEC + Invariants to handoff packs and introduced `handoffkit preflight`.
+- Created baseline `SPEC.md` and `docs/INVARIANTS.md`.
+- Updated workflow docs and templates to reflect the new requirements.
+
+### Files touched
+- handoffkit/__main__.py
+- handoffkit.config.json
+- handoffkit/handoffkit.config.json
+- SPEC.md
+- docs/INVARIANTS.md
+- docs/Repo_Structure.md
+- docs/PERSISTENT_AGENT_WORKFLOW.md
+- docs/AGENT_SESSION_PROTOCOL.md
+- handoffkit/templates/architect.md
+
+### Outcomes / Decisions
+- SPEC + Invariants are required artifacts for handoff packs.
+- Preflight validation is part of the recommended workflow.
 
 ### 2025-12-01 (Session 2)
 

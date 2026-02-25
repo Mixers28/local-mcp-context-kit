@@ -5,16 +5,16 @@
 
 <!-- SUMMARY_START -->
 **Current Focus (auto-maintained by Agent):**
-- Keep docs aligned to the handoffkit CLI workflow and SPEC.md authority.
-- Validate the session start/end flow with the new agent prompts.
-- Remove leftover extension artifacts and keep repo structure clean.
+- Enforce SPEC + Invariants in handoff packs and validate with preflight.
+- Update memory docs to reflect new requirements and workflow.
+- Add tests for handoffkit preflight and context pack behavior.
 <!-- SUMMARY_END -->
 
 ---
 
 ## Current Objective
 
-Deliver a coherent handoffkit CLI workflow template with accurate docs and SPEC.md as the source of truth.
+Harden handoff requirements (SPEC + Invariants) and add validation/tests to reduce drift.
 
 ---
 
@@ -26,19 +26,28 @@ Deliver a coherent handoffkit CLI workflow template with accurate docs and SPEC.
 
 ## What We Are Working On Right Now
 
-- [x] Replace MCP framing in docs with the persistent agent workflow source of truth.
-- [x] Remove extension artifacts and legacy scripts.
-- [ ] Verify session flow with the new CLI and role prompts.
+- [ ] Add tests for `handoffkit preflight` and required-artifact handling.
+- [ ] Run `handoffkit preflight` and validate a full start/end session flow.
+- [ ] Review token budget defaults for 16k–32k offline model usage.
 
 ---
 
 ## Next Small Deliverables
 
-- A clear usage section for selecting and handing off to agents.
-- A quick validation note or checklist for CLI behavior.
+- Minimal test coverage for preflight + SPEC/INVARIANTS inclusion.
+- A validation note for the CLI session flow (start/end + preflight).
+- Optional token-budget adjustments if needed.
+
+---
+
+## Drift Guards (keep NOW fresh)
+
+- Keep NOW to 5–12 active tasks; remove completed items.
+- Refresh summary blocks every session.
+- Move stable decisions into PROJECT_CONTEXT.
 
 ---
 
 ## Notes / Scratchpad
 
-- MCP terminology is deprecated; the new design doc is `docs/PERSISTENT_AGENT_WORKFLOW.md`.
+- If NOW grows, move details into SESSION_NOTES and roll up key points.

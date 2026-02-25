@@ -6,8 +6,9 @@
 <!-- SUMMARY_START -->
 **Summary (auto-maintained by Agent):**
 - Template repo proving Markdown + Git can store long-lived memory for AI coding agents.
-- Entire workflow stays local inside VS Code + the handoffkit CLI, no backend dependencies.
-- Immediate push: polish docs, add an example project, and validate on a real codebase.
+- Workflow stays local inside VS Code + handoffkit CLI; no backend dependencies.
+- Handoff packs now require SPEC + Invariants and support preflight checks to prevent drift.
+- Drift guardrails: keep summaries tight, log decisions here, and keep NOW short and current.
 <!-- SUMMARY_END -->
 
 ---
@@ -39,29 +40,41 @@
 - Non-negotiable constraints:
   - Must remain backend-free and editor-native.
   - Documentation stays in plain Markdown for easy review.
+  - Handoffs require SPEC + Invariants to reduce drift.
 
 ---
 
-## 4. Architecture Snapshot
+## 4. Memory Hygiene (Drift Guards)
+
+- Keep this summary block current and <= 300 tokens.
+- Move stable decisions into the Change Log so they persist across sessions.
+- Keep NOW to 5–12 active tasks; archive or remove completed items.
+- Roll up SESSION_NOTES into summaries weekly (or every few sessions).
+
+---
+
+## 5. Architecture Snapshot
 
 - Docs folder holds long-term (PROJECT_CONTEXT), working-memory (NOW), and session logs (SESSION_NOTES).
-- The handoffkit CLI guides agents through start/end rituals.
+- The handoffkit CLI guides agents through start/end rituals and preflight checks.
 - VS Code tasks integrate with the handoffkit CLI so humans/agents share the same workflow.
 
 ---
 
-## 5. Links & Related Docs
+## 6. Links & Related Docs
 
 - Roadmap: TBD
 - Design docs: docs/MCP_LOCAL_DESIGN.md, docs/AGENT_SESSION_PROTOCOL.md
-- Specs: docs/Repo_Structure.md
+- Specs: SPEC.md, docs/Repo_Structure.md
 - Product / UX docs: docs/PROJECT_CONTEXT.md, docs/NOW.md
+- Invariants: docs/INVARIANTS.md
 
 ---
 
-## 6. Change Log (High-Level Decisions)
+## 7. Change Log (High-Level Decisions)
 
 Use this section for **big decisions** only:
 
+- `2026-02-04` – Require SPEC + Invariants in handoff packs and add preflight validation.
 - `YYYY-MM-DD` – Decided on X instead of Y.
 - `YYYY-MM-DD` – Switched primary deployment target to Z.
