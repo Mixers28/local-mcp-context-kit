@@ -2,10 +2,23 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Preflight (Artifacts + Guardrails)",
+      "type": "shell",
+      "command": "python3",
+      "args": [
+        "-m",
+        "handoffkit",
+        "preflight"
+      ],
+      "problemMatcher": []
+    },
+    {
       "label": "Start Session (Agent - Coder)",
       "type": "shell",
-      "command": "handoffkit",
+      "command": "python3",
       "args": [
+        "-m",
+        "handoffkit",
         "session",
         "start",
         "--agent-role",
@@ -17,8 +30,10 @@
     {
       "label": "Start Session (Agent - Architect)",
       "type": "shell",
-      "command": "handoffkit",
+      "command": "python3",
       "args": [
+        "-m",
+        "handoffkit",
         "session",
         "start",
         "--agent-role",
@@ -30,8 +45,10 @@
     {
       "label": "Start Session (Agent - Reviewer)",
       "type": "shell",
-      "command": "handoffkit",
+      "command": "python3",
       "args": [
+        "-m",
+        "handoffkit",
         "session",
         "start",
         "--agent-role",
@@ -43,8 +60,10 @@
     {
       "label": "Start Session (Agent - QA)",
       "type": "shell",
-      "command": "handoffkit",
+      "command": "python3",
       "args": [
+        "-m",
+        "handoffkit",
         "session",
         "start",
         "--agent-role",
@@ -56,11 +75,27 @@
     {
       "label": "End Session (Agent + Commit)",
       "type": "shell",
-      "command": "handoffkit",
+      "command": "python3",
       "args": [
+        "-m",
+        "handoffkit",
         "session",
         "end",
         "--commit"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "End Session (Agent + Commit Stage All)",
+      "type": "shell",
+      "command": "python3",
+      "args": [
+        "-m",
+        "handoffkit",
+        "session",
+        "end",
+        "--commit",
+        "--stage-all"
       ],
       "problemMatcher": []
     }

@@ -41,6 +41,7 @@ handoffkit session start --agent-role Coder --open-docs
 ```
 
 Flow:
+- `handoffkit` runs startup drift checks (`git status --porcelain`, `git diff --name-status HEAD --`).
 - CLI prints a `SESSION START` prompt.
 - You paste the prompt into the agent.
 - The agent reads `PROJECT_CONTEXT` → `NOW` → recent `SESSION_NOTES`, then summarizes context.
@@ -55,7 +56,7 @@ Flow:
 - CLI prints a `SESSION END` prompt.
 - You add brief notes for the agent (2–5 bullets).
 - The agent updates memory files in the workspace.
-- `handoffkit` can commit + push after you confirm the agent updates.
+- `handoffkit` runs a writeback checkpoint (requires NOW + SESSION_NOTES updates), stages session docs by default, then commits/pushes after confirmation.
 
 ## Roles
 - **Local code agent** (e.g., VS Code Code Agent): reads/writes repo files and keeps memory docs accurate and diff-friendly.

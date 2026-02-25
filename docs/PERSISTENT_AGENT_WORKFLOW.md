@@ -32,10 +32,11 @@ write back durable memory in Markdown.
 - Uses repo role prompts in `.github/agents/*.agent.md` when present.
 
 ## Primary Workflows
-1) Start a session with `handoffkit session start` (or VS Code task).
-2) Generate a role prompt with `handoffkit <role> "<instruction>"`.
-3) Provide instructions to the agent, using selection or file context when helpful.
-4) At session end, write back to memory docs and commit with `handoffkit session end --commit`.
+1) Optional: run `handoffkit preflight` to validate required files.
+2) Start a session with `handoffkit session start` (or VS Code task); startup drift checks are enforced.
+3) Generate a role prompt with `handoffkit <role> "<instruction>"`.
+4) Provide instructions to the agent, using selection or file context when helpful.
+5) At session end, write back to memory docs and commit with `handoffkit session end --commit` (checkpoint requires NOW + SESSION_NOTES updates).
 
 ## Constraints
 - CLI must run on macOS/Linux/WSL.

@@ -3,7 +3,7 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Sequence
 
 def approx_tokens(text: str) -> int:
     # Extremely rough heuristic: ~4 chars/token typical for English.
@@ -22,6 +22,29 @@ def strip_frontmatter(md: str) -> str:
         if len(parts) >= 3:
             return parts[2].lstrip("\n")
     return md
+
+def resolve_path(path_str: str, project_root: Path) -> Path:
+    p = Path(path_str)
+    if not p.is_absolute():
+        p = (project_root / p).resolve()
+    return p
+
+def read_artifact_file(path_str: Optional[str], *, project_root: Path, label: str, required: bool) -> Tuple[Optional[str], Optional[Path]]:
+    if not path_str:
+        if required:
+            raise FileNotFoundError(f"{label} file not specified.")
+        return None, None
+    p = resolve_path(path_str, project_root)
+    if not p.exists():
+        if required:
+            raise FileNotFoundError(f"{label} file not found: {p}")
+        return None, None
+    content = read_text(p).strip()
+    if not content:
+        if required:
+            raise RuntimeError(f"{label} file is empty: {p}")
+        return None, p
+    return content, p
 
 def find_project_root(start: Path) -> Path:
     """Walk upwards to find a likely project root (Local MCP layout)."""
@@ -47,8 +70,26 @@ def tail_lines(text: str, max_lines: int) -> str:
         return text.strip()
     return "\n".join(lines[-max_lines:]).strip()
 
+def truncate_text(text: str, max_tokens: int) -> str:
+    if max_tokens <= 0:
+        return ""
+    limit = max_tokens * 4
+    if len(text) <= limit:
+        return text.strip()
+    truncated = False
+    cut = text.rfind("\n", 0, limit)
+    if cut == -1:
+        cut = limit
+    truncated = True
+    out = (text[:cut].rstrip() + "\n…(truncated)…").strip()
+    if truncated and out.count("```") % 2 == 1:
+        out = out.rstrip() + "\n```"
+    return out.strip()
+
 ROLE_CHOICES = ["architect", "coder", "reviewer", "qa_tester", "polish", "qa"]
 SESSION_ROLE_CHOICES = ["Architect", "Coder", "Reviewer", "QA"]
+SESSION_REQUIRED_WRITEBACK_FILES = ["docs/NOW.md", "docs/SESSION_NOTES.md"]
+SESSION_STAGE_FILES = ["docs/NOW.md", "docs/SESSION_NOTES.md", "docs/PROJECT_CONTEXT.md"]
 
 def read_optional_input(path_str: Optional[str], *, project_root: Path, label: str) -> Optional[str]:
     """Read optional content from a file path or stdin.
@@ -87,6 +128,8 @@ def load_config(project_root: Path, tool_root: Path, config_path: Optional[str])
         if not p.is_absolute():
             # allow relative to cwd
             p = (Path.cwd() / p).resolve()
+        if not p.exists():
+            raise FileNotFoundError(f"Config file not found: {p}")
         candidates.append(p)
     else:
         candidates.append(project_root / "handoffkit.config.json")
@@ -110,36 +153,42 @@ def load_config(project_root: Path, tool_root: Path, config_path: Optional[str])
         "session_notes_tail_lines": 80,
         "protocol_file": "docs/AGENT_SESSION_PROTOCOL.md",
         "protocol_tail_lines": 120,
+        "spec_file": "SPEC.md",
+        "invariants_file": "docs/INVARIANTS.md",
+        "require_spec": False,
+        "require_invariants": False,
+        "auto_include_spec": True,
+        "auto_include_invariants": True,
     }
 
 def load_role_prompt(project_root: Path, tool_root: Path, role: str) -> Tuple[str, Optional[Path]]:
     """Load role prompt from repo agents if present, else from kit templates."""
     role = role.lower()
-    repo_slug_map = {
-        "architect": "architect",
-        "coder": "coder",
-        "reviewer": "reviewer",
-        "qa_tester": "qa",
-        "qa": "qa",
-        "polish": "polish",
-    }
-    slug = repo_slug_map.get(role, role)
-    repo_agent_path = project_root / ".github" / "agents" / f"{slug}.agent.md"
-    if repo_agent_path.exists():
-        content = strip_frontmatter(read_text(repo_agent_path)).strip()
-        return content, repo_agent_path
+    slug_candidates = [role]
+    if role == "qa_tester":
+        slug_candidates = ["qa_tester", "qa"]
+    elif role == "qa":
+        slug_candidates = ["qa", "qa_tester"]
+
+    for slug in slug_candidates:
+        repo_agent_path = project_root / ".github" / "agents" / f"{slug}.agent.md"
+        if repo_agent_path.exists():
+            content = strip_frontmatter(read_text(repo_agent_path)).strip()
+            return content, repo_agent_path
 
     template_path = tool_root / "templates" / f"{role}.md"
     if not template_path.exists():
-        # Fallback: try qa_tester if qa requested
-        if role == "qa" and (tool_root / "templates" / "qa_tester.md").exists():
+        # Fallback: try qa_tester if qa requested (or qa_tester if qa is missing)
+        if role in ("qa", "qa_tester") and (tool_root / "templates" / "qa_tester.md").exists():
             template_path = tool_root / "templates" / "qa_tester.md"
         else:
             raise FileNotFoundError(f"Template not found for role '{role}' at {template_path}")
     return read_text(template_path).strip(), None
 
 def read_baseline_section(project_root: Path, rel: str, max_tokens: int) -> Optional[Tuple[str,str]]:
-    p = (project_root / rel)
+    p = Path(rel)
+    if not p.is_absolute():
+        p = (project_root / p)
     if not p.exists():
         return None
     raw = read_text(p)
@@ -147,12 +196,24 @@ def read_baseline_section(project_root: Path, rel: str, max_tokens: int) -> Opti
     content = summary if summary else raw.strip()
     # token cap
     if approx_tokens(content) > max_tokens:
-        chars = max_tokens * 4
-        content = (content[:chars] + "\n…(truncated)…").strip()
+        content = truncate_text(content, max_tokens)
     title = rel
     return title, content
 
-def build_context_pack(project_root: Path, cfg: Dict, instruction: str, selection: Optional[str], diff_text: Optional[str], *, role_name: str, role_agent_path: Optional[Path]) -> str:
+def build_context_pack(
+    project_root: Path,
+    cfg: Dict,
+    instruction: str,
+    selection: Optional[str],
+    diff_text: Optional[str],
+    *,
+    role_name: str,
+    role_agent_path: Optional[Path],
+    spec_content: Optional[str],
+    spec_title: Optional[str],
+    invariants_content: Optional[str],
+    invariants_title: Optional[str],
+) -> str:
     budget = int(cfg.get("token_budget", 2200))
 
     # High-priority sections (never trimmed too aggressively)
@@ -168,6 +229,10 @@ def build_context_pack(project_root: Path, cfg: Dict, instruction: str, selectio
     sections: List[Tuple[str, str, int]] = []  # (title, content, priority)
     # priority: higher = keep more
     sections.append(("Instruction", instruction.strip(), 100))
+    if spec_content:
+        sections.append((spec_title or "SPEC.md", spec_content.strip(), 95))
+    if invariants_content:
+        sections.append((invariants_title or "Invariants", invariants_content.strip(), 95))
     if selection:
         sections.append(("Selection", selection, 90))
     if diff_text:
@@ -203,32 +268,35 @@ def build_context_pack(project_root: Path, cfg: Dict, instruction: str, selectio
     # Materialize baseline file sections (which are stored as rel paths above)
     materialized: List[Tuple[str, str, int]] = []
     for title, content, prio in sections:
-        if title in ("NOW", "PROJECT_CONTEXT") and isinstance(content, str) and content.endswith(".md") and "/" in content:
-            # It's a rel path
+        if title in ("NOW", "PROJECT_CONTEXT") and isinstance(content, str):
             max_tok = 450 if title == "NOW" else 650
             rb = read_baseline_section(project_root, content, max_tokens=max_tok)
             if rb:
                 t, c = rb
                 materialized.append((t, c, prio))
-            continue
+                continue
         materialized.append((title, content, prio))
 
     # Budgeting: allocate more to higher priority, but keep everything if possible.
     # We'll trim lower-priority sections first.
     def section_tokens(txt: str) -> int:
-        return approx_tokens(txt)
+        stripped = txt.strip()
+        if not stripped:
+            return 0
+        return approx_tokens(stripped)
 
     # Prepare pretty formatting
     out_parts = [header, ""]
-    # Reserve ~100 tokens for framing + markdown overhead
-    remaining = max(200, budget - 100)
+    # Reserve a small amount for framing + markdown overhead.
+    reserved = min(120, max(40, budget // 5))
+    remaining = max(0, budget - reserved)
 
     # Sort by priority desc for initial inclusion, but we'll render in a logical order later.
     # First, trim if needed.
     mats = materialized[:]
     total = sum(section_tokens(c) for _, c, _ in mats)
     if total > remaining:
-        # Trim in ascending priority order
+        # Trim in ascending priority order.
         mats_sorted = sorted(mats, key=lambda x: x[2])
         over = total - remaining
         trimmed = []
@@ -236,24 +304,66 @@ def build_context_pack(project_root: Path, cfg: Dict, instruction: str, selectio
             if over <= 0:
                 trimmed.append((title, content, prio))
                 continue
-            # Determine minimum tokens we keep for this section based on priority.
-            min_keep = 120 if prio >= 60 else 80 if prio >= 35 else 60
+            min_keep = 160 if prio >= 90 else 120 if prio >= 60 else 90 if prio >= 35 else 60
             tok = section_tokens(content)
             if tok <= min_keep:
                 trimmed.append((title, content, prio))
                 continue
-            # Reduce this section
-            reducible = tok - min_keep
-            cut = min(reducible, over)
+            cut = min(tok - min_keep, over)
             new_tok = tok - cut
-            chars = new_tok * 4
-            new_content = (content[:chars] + "\n…(truncated)…").strip()
+            new_content = truncate_text(content, new_tok)
+            trimmed.append((title, new_content, prio))
+            over -= cut
+        mats = trimmed
+
+    over = sum(section_tokens(c) for _, c, _ in mats) - remaining
+    if over > 0:
+        # If we still exceed the budget, trim below the soft minimum.
+        mats_sorted = sorted(mats, key=lambda x: x[2])
+        trimmed = []
+        for title, content, prio in mats_sorted:
+            if over <= 0:
+                trimmed.append((title, content, prio))
+                continue
+            hard_min = 80 if prio >= 90 else 60 if prio >= 60 else 40 if prio >= 35 else 20
+            tok = section_tokens(content)
+            if tok <= hard_min:
+                trimmed.append((title, content, prio))
+                continue
+            cut = min(tok - hard_min, over)
+            new_tok = tok - cut
+            new_content = truncate_text(content, new_tok)
+            trimmed.append((title, new_content, prio))
+            over -= cut
+        mats = trimmed
+
+    over = sum(section_tokens(c) for _, c, _ in mats) - remaining
+    if over > 0:
+        # Final pass: trim lowest priority sections further to guarantee the cap.
+        mats_sorted = sorted(mats, key=lambda x: x[2])
+        trimmed = []
+        for title, content, prio in mats_sorted:
+            if over <= 0:
+                trimmed.append((title, content, prio))
+                continue
+            tok = section_tokens(content)
+            if tok <= 0:
+                trimmed.append((title, content, prio))
+                continue
+            cut = min(tok, over)
+            new_tok = tok - cut
+            new_content = truncate_text(content, new_tok)
             trimmed.append((title, new_content, prio))
             over -= cut
         mats = trimmed
 
     # Render in deterministic order:
-    render_order = ["Instruction", "docs/NOW.md", "docs/PROJECT_CONTEXT.md", "Recent SESSION_NOTES", "AGENT_SESSION_PROTOCOL", "Selection", "Diff"]
+    render_order = ["Instruction"]
+    if invariants_content:
+        render_order.append(invariants_title or "Invariants")
+    if spec_content:
+        render_order.append(spec_title or "SPEC.md")
+    render_order.extend(["docs/NOW.md", "docs/PROJECT_CONTEXT.md", "Recent SESSION_NOTES", "AGENT_SESSION_PROTOCOL", "Selection", "Diff"])
     # Map titles
     rendered = []
     for wanted in render_order:
@@ -306,6 +416,113 @@ def run_git(args: List[str], *, cwd: Path, capture: bool = False, check: bool = 
         raise RuntimeError(f"git {' '.join(args)} failed: {details}")
     return result.stdout if capture else ""
 
+def git_status_porcelain_lines(project_root: Path, paths: Optional[Sequence[str]] = None) -> List[str]:
+    cmd = ["status", "--porcelain"]
+    if paths:
+        cmd.extend(["--", *paths])
+    try:
+        out = run_git(cmd, cwd=project_root, capture=True)
+    except RuntimeError:
+        return []
+    return [line.rstrip() for line in out.splitlines() if line.strip()]
+
+def git_diff_name_status_vs_head(project_root: Path, paths: Optional[Sequence[str]] = None) -> List[str]:
+    cmd = ["diff", "--name-status", "HEAD"]
+    if paths:
+        cmd.extend(["--", *paths])
+    try:
+        out = run_git(cmd, cwd=project_root, capture=True)
+    except RuntimeError:
+        return []
+    return [line.rstrip() for line in out.splitlines() if line.strip()]
+
+def print_startup_checks(project_root: Path) -> bool:
+    print("Startup Checks (MANDATORY)")
+    status_lines = git_status_porcelain_lines(project_root)
+    diff_lines = git_diff_name_status_vs_head(project_root)
+
+    if status_lines:
+        print("1) git status --porcelain: uncommitted changes detected")
+        for line in status_lines:
+            print(f"   - {line}")
+    else:
+        print("1) git status --porcelain: clean")
+
+    if diff_lines:
+        print("2) git diff --name-status HEAD -- :")
+        for line in diff_lines:
+            print(f"   - {line}")
+    else:
+        print("2) git diff --name-status HEAD -- : no tracked changes vs HEAD")
+
+    return bool(status_lines)
+
+def has_uncommitted_changes_for_path(project_root: Path, rel_path: str) -> bool:
+    return bool(git_status_porcelain_lines(project_root, paths=[rel_path]))
+
+def missing_writeback_files(project_root: Path) -> List[str]:
+    missing = []
+    for rel_path in SESSION_REQUIRED_WRITEBACK_FILES:
+        if not has_uncommitted_changes_for_path(project_root, rel_path):
+            missing.append(rel_path)
+    return missing
+
+def preflight_report(project_root: Path, cfg: Dict) -> int:
+    print("Local MCP – Preflight")
+    print("")
+
+    issues = 0
+
+    def check_file(label: str, path_str: Optional[str], *, required: bool) -> None:
+        nonlocal issues
+        if not path_str:
+            if required:
+                print(f"MISSING: {label} (no path configured)")
+                issues += 1
+            else:
+                print(f"SKIP: {label} (no path configured)")
+            return
+        p = resolve_path(path_str, project_root)
+        if not p.exists():
+            if required:
+                print(f"MISSING: {label} ({p.as_posix()})")
+                issues += 1
+            else:
+                print(f"WARN: {label} not found ({p.as_posix()})")
+            return
+        content = read_text(p).strip()
+        if not content and required:
+            print(f"MISSING: {label} is empty ({p.as_posix()})")
+            issues += 1
+        else:
+            print(f"OK: {label} ({p.as_posix()})")
+        if extract_summary_block(content) is None:
+            print(f"INFO: {label} has no SUMMARY block")
+
+    for rel in cfg.get("baseline_files", []):
+        check_file(rel, rel, required=True)
+
+    check_file("Session notes", cfg.get("session_notes_file"), required=True)
+    check_file("Protocol", cfg.get("protocol_file"), required=True)
+
+    auto_spec = bool(cfg.get("auto_include_spec", True))
+    auto_invariants = bool(cfg.get("auto_include_invariants", True))
+    require_spec = bool(cfg.get("require_spec", False))
+    require_invariants = bool(cfg.get("require_invariants", False))
+
+    if auto_spec or require_spec:
+        check_file("SPEC.md", cfg.get("spec_file"), required=require_spec)
+    if auto_invariants or require_invariants:
+        check_file("Invariants", cfg.get("invariants_file"), required=require_invariants)
+
+    if issues:
+        print("")
+        print(f"Preflight failed with {issues} issue(s).")
+    else:
+        print("")
+        print("Preflight OK.")
+    return 1 if issues else 0
+
 def current_branch(project_root: Path) -> str:
     try:
         return run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_root, capture=True).strip()
@@ -337,14 +554,21 @@ def print_session_start(project_root: Path, agent_role: str, open_docs: bool) ->
         "0. Assume the role described here:",
         f"   - {agent_role_file}",
         "",
-        "1. Read these files in this order:",
+        "1. Run startup checks before reading docs:",
+        "   - git status --porcelain",
+        "   - git diff --name-status HEAD --",
+        "   - If changes exist, STOP and ask:",
+        "     'Working tree has uncommitted changes in [files]. Discard, keep, or commit before we proceed?'",
+        "   - Continue only when clean or explicitly acknowledged by the user.",
+        "",
+        "2. Read these files in this order:",
         "   - docs/PROJECT_CONTEXT.md",
         "   - docs/NOW.md",
         "   - docs/SESSION_NOTES.md",
         "",
-        "2. Summarise the current context in 3–6 bullet points so we both know you understood it.",
+        "3. Summarise the current context in 3–6 bullet points so we both know you understood it.",
         "",
-        "3. Then wait for my next instruction.",
+        "4. Then wait for my next instruction.",
     ]
     print("\n".join(lines))
 
@@ -380,7 +604,8 @@ def print_session_end(project_root: Path, commit_enabled: bool) -> None:
     print("1) Copy the block below into your local code agent.")
     print("2) Let it update docs (SESSION_NOTES, NOW, summaries).")
     if commit_enabled:
-        print("3) Come back here and press Enter to commit & push.")
+        print("3) Come back here and press Enter to run writeback checkpoint + commit.")
+        print("   Note: --commit requires NOW.md + SESSION_NOTES.md updates.")
     else:
         print("3) Come back here when the agent is done.")
     print("")
@@ -418,27 +643,44 @@ def print_session_end(project_root: Path, commit_enabled: bool) -> None:
         "   - 3–6 bullet points summarising the session",
         "   - A list of the files you modified",
         "",
+        "4. End-of-session checkpoint (MANDATORY):",
+        "   - Update docs/NOW.md to match actual HEAD.",
+        "   - Append a new entry to docs/SESSION_NOTES.md.",
+        "   - Run git status and include current branch/HEAD hash in your reply.",
+        "",
         "Here is my brief description of what we did this session:",
         "[WRITE 2–5 BULLET POINTS HERE BEFORE SENDING TO THE AGENT]",
     ]
     print("\n".join(lines))
 
-def commit_session(project_root: Path, remote: str) -> None:
-    run_git(["add", "docs/PROJECT_CONTEXT.md", "docs/NOW.md", "docs/SESSION_NOTES.md"], cwd=project_root)
-    run_git(["add", "-A"], cwd=project_root)
+def commit_session(project_root: Path, remote: str, *, stage_all: bool) -> None:
+    missing = missing_writeback_files(project_root)
+    if missing:
+        joined = ", ".join(missing)
+        raise RuntimeError(
+            "Writeback checkpoint failed. Required files are unchanged vs working tree: "
+            f"{joined}. Update those files before using --commit."
+        )
+
+    if stage_all:
+        run_git(["add", "-A"], cwd=project_root)
+    else:
+        run_git(["add", "--", *SESSION_STAGE_FILES], cwd=project_root)
 
     branch = run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_root, capture=True).strip()
+    head_before = run_git(["rev-parse", "--short", "HEAD"], cwd=project_root, capture=True).strip()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    commit_message = f"Session notes update - {timestamp}"
+    commit_message = f"Session update - {timestamp}"
 
-    changes = run_git(["status", "--porcelain"], cwd=project_root, capture=True).strip()
-    if changes:
+    staged = run_git(["diff", "--cached", "--name-only"], cwd=project_root, capture=True).strip()
+    if staged:
         run_git(["commit", "-m", commit_message], cwd=project_root)
+        head_after = run_git(["rev-parse", "--short", "HEAD"], cwd=project_root, capture=True).strip()
+        run_git(["push", remote, branch], cwd=project_root)
+        print(f"Pushed branch '{branch}' to {remote}.")
+        print(f"NOW.md updated. Writeback checkpoint passed. HEAD moved {head_before} -> {head_after}.")
     else:
-        print("No changes to commit.")
-
-    run_git(["push", remote, branch], cwd=project_root)
-    print(f"Pushed branch '{branch}' to {remote}.")
+        print("No staged changes to commit. Skipping commit + push.")
 
 def parse_args(argv: Optional[List[str]] = None):
     ap = argparse.ArgumentParser(prog="handoffkit", description="Universal (LLM-agnostic) handoff prompt builder")
@@ -451,6 +693,10 @@ def parse_args(argv: Optional[List[str]] = None):
     role_parser.add_argument("--config", default=None, help="Path to config JSON (optional). If omitted, auto-discovered.")
     role_parser.add_argument("--selection-file", default=None, help="Path to a file containing your selected snippet (optional)")
     role_parser.add_argument("--diff", default=None, help="Path to a diff file, or '-' to read diff from stdin (optional)")
+    role_parser.add_argument("--spec", default=None, help="Path to SPEC.md (optional; overrides config)")
+    role_parser.add_argument("--invariants", default=None, help="Path to invariants file (optional; overrides config)")
+    role_parser.add_argument("--no-spec", action="store_true", help="Do not include SPEC.md in the handoff pack")
+    role_parser.add_argument("--no-invariants", action="store_true", help="Do not include invariants in the handoff pack")
 
     session_parser = subparsers.add_parser("session", help="Start or end a session")
     session_subparsers = session_parser.add_subparsers(dest="session_command", required=True)
@@ -459,11 +705,17 @@ def parse_args(argv: Optional[List[str]] = None):
     start_parser.add_argument("--root", default=".", help="Path to (or inside) your project root. Can be run from anywhere.")
     start_parser.add_argument("--agent-role", default="Coder", choices=SESSION_ROLE_CHOICES, help="Agent role to reference")
     start_parser.add_argument("--open-docs", action="store_true", help="Open memory docs in VS Code if available")
+    start_parser.add_argument("--allow-dirty", action="store_true", help="Proceed even if working tree has uncommitted changes")
 
     end_parser = session_subparsers.add_parser("end", help="Print the session end prompt")
     end_parser.add_argument("--root", default=".", help="Path to (or inside) your project root. Can be run from anywhere.")
     end_parser.add_argument("--commit", action="store_true", help="Commit and push after the agent updates docs")
+    end_parser.add_argument("--stage-all", action="store_true", help="Stage all tracked/untracked changes instead of session memory files only")
     end_parser.add_argument("--remote", default="origin", help="Git remote name to push to")
+
+    preflight_parser = subparsers.add_parser("preflight", help="Validate memory docs and required artifacts")
+    preflight_parser.add_argument("--root", default=".", help="Path to (or inside) your project root. Can be run from anywhere.")
+    preflight_parser.add_argument("--config", default=None, help="Path to config JSON (optional). If omitted, auto-discovered.")
 
     if argv is None:
         argv = sys.argv[1:]
@@ -481,15 +733,37 @@ def main():
         invocation_root = Path(args.root).resolve()
         project_root = find_project_root(invocation_root)
         if args.session_command == "start":
+            dirty = print_startup_checks(project_root)
+            if dirty and not args.allow_dirty:
+                print("")
+                print("STOP: Working tree has uncommitted changes.")
+                print("Action required: discard, keep, or commit before proceeding.")
+                print("If you explicitly want to proceed anyway, rerun with --allow-dirty.")
+                sys.exit(1)
+            if dirty:
+                print("")
+                print("Proceeding with explicit acknowledgment (--allow-dirty).")
+                print("")
             print_session_start(project_root, args.agent_role, args.open_docs)
             return
         if args.session_command == "end":
             print_session_end(project_root, args.commit)
             if args.commit:
                 print("")
-                input("After the agent has updated the docs and you're happy with the changes, press Enter here to commit & push")
-                commit_session(project_root, args.remote)
+                input("After the agent has updated the docs and you're happy with the changes, press Enter here to run checkpoint + commit")
+                try:
+                    commit_session(project_root, args.remote, stage_all=args.stage_all)
+                except RuntimeError as e:
+                    print(str(e), file=sys.stderr)
+                    sys.exit(1)
             return
+
+    if args.command == "preflight":
+        invocation_root = Path(args.root).resolve()
+        project_root = find_project_root(invocation_root)
+        tool_root = Path(__file__).resolve().parent
+        cfg = load_config(project_root, tool_root, args.config)
+        sys.exit(preflight_report(project_root, cfg))
 
     invocation_root = Path(args.root).resolve()
 
@@ -508,11 +782,64 @@ def main():
         print("\nTip: generate a diff file with `git diff > patch.diff` and pass `--diff patch.diff`, or use `--diff -` to pipe stdin.", file=sys.stderr)
         sys.exit(2)
 
+    spec_path = args.spec if args.spec is not None else cfg.get("spec_file", "SPEC.md")
+    invariants_path = args.invariants if args.invariants is not None else cfg.get("invariants_file", "docs/INVARIANTS.md")
+
+    auto_include_spec = bool(cfg.get("auto_include_spec", True))
+    auto_include_invariants = bool(cfg.get("auto_include_invariants", True))
+    require_spec = bool(cfg.get("require_spec", False))
+    require_invariants = bool(cfg.get("require_invariants", False))
+
+    if args.no_spec:
+        if require_spec:
+            print("SPEC.md is required by config; --no-spec is not allowed.", file=sys.stderr)
+            sys.exit(2)
+        auto_include_spec = False
+    if args.no_invariants:
+        if require_invariants:
+            print("Invariants are required by config; --no-invariants is not allowed.", file=sys.stderr)
+            sys.exit(2)
+        auto_include_invariants = False
+
+    try:
+        spec_content = None
+        spec_title = None
+        if auto_include_spec:
+            spec_content, spec_resolved = read_artifact_file(
+                spec_path, project_root=project_root, label="SPEC.md", required=require_spec
+            )
+            if spec_content and spec_resolved:
+                try:
+                    spec_title = str(spec_resolved.relative_to(project_root))
+                except ValueError:
+                    spec_title = spec_resolved.as_posix()
+
+        invariants_content = None
+        invariants_title = None
+        if auto_include_invariants:
+            invariants_content, invariants_resolved = read_artifact_file(
+                invariants_path, project_root=project_root, label="Invariants", required=require_invariants
+            )
+            if invariants_content and invariants_resolved:
+                invariants_title = "Invariants"
+    except (FileNotFoundError, RuntimeError) as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(2)
+
     role_prompt, agent_path = load_role_prompt(project_root, tool_root, args.role)
 
     pack = build_context_pack(
-        project_root, cfg, args.instruction, selection, diff_text,
-        role_name=args.role, role_agent_path=agent_path
+        project_root,
+        cfg,
+        args.instruction,
+        selection,
+        diff_text,
+        role_name=args.role,
+        role_agent_path=agent_path,
+        spec_content=spec_content,
+        spec_title=spec_title,
+        invariants_content=invariants_content,
+        invariants_title=invariants_title,
     )
 
     print(role_prompt + "\n\n" + pack)
