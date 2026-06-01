@@ -1,0 +1,427 @@
+{
+  "branch": "main",
+  "generated_at": "2026-06-02T00:33:34",
+  "generated_from_commit": "4610a7f",
+  "modules": [
+    {
+      "depends_on": [],
+      "kind": "other",
+      "path": ".githooks/pre-commit",
+      "role": "Repository file.",
+      "size_bytes": 202,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": ".github/agents/architect.agent.md",
+      "role": "Role-specific GitHub/Copilot agent prompt.",
+      "size_bytes": 1958,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": ".github/agents/coder.agent.md",
+      "role": "Role-specific GitHub/Copilot agent prompt.",
+      "size_bytes": 1571,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": ".github/agents/polish.agent.md",
+      "role": "Role-specific GitHub/Copilot agent prompt.",
+      "size_bytes": 1134,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": ".github/agents/qa.agent.md",
+      "role": "Role-specific GitHub/Copilot agent prompt.",
+      "size_bytes": 1508,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": ".github/agents/reviewer.agent.md",
+      "role": "Role-specific GitHub/Copilot agent prompt.",
+      "size_bytes": 1976,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "configuration",
+      "path": ".github/workflows/guardrails.yml",
+      "role": "GitHub Actions workflow.",
+      "size_bytes": 557,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "other",
+      "path": ".gitignore",
+      "role": "Repository file.",
+      "size_bytes": 199,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "configuration",
+      "path": ".vscode/settings.json",
+      "role": "VS Code workspace/task configuration for local workflows.",
+      "size_bytes": 38,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "configuration",
+      "path": ".vscode/tasks.json",
+      "role": "VS Code workspace/task configuration for local workflows.",
+      "size_bytes": 2008,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "README.md",
+      "role": "Primary user-facing usage documentation.",
+      "size_bytes": 4734,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "REPO_README.md",
+      "role": "Repository file.",
+      "size_bytes": 1541,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "SPEC.md",
+      "role": "Canonical project specification used in handoff packs.",
+      "size_bytes": 1563,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/AGENT_SESSION_PROTOCOL.md",
+      "role": "Start/end session protocol and writeback rules.",
+      "size_bytes": 3544,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/INVARIANTS.md",
+      "role": "Non-negotiable workflow constraints.",
+      "size_bytes": 481,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/MCP_LOCAL_DESIGN.md",
+      "role": "Project documentation or memory file.",
+      "size_bytes": 3334,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/NOW.md",
+      "role": "Working memory: current focus, active branch, and next actions.",
+      "size_bytes": 1354,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/PERSISTENT_AGENT_WORKFLOW.md",
+      "role": "Project documentation or memory file.",
+      "size_bytes": 1801,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/PROJECT_CONTEXT.md",
+      "role": "Long-term project memory: intent, constraints, architecture, and stable decisions.",
+      "size_bytes": 3737,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/Repo_Structure.md",
+      "role": "Project documentation or memory file.",
+      "size_bytes": 1015,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/SESSION_NOTES.md",
+      "role": "Append-only session memory and recent outcomes.",
+      "size_bytes": 5724,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "docs/local-mcp-context-kit.code-workspace",
+      "role": "Project documentation or memory file.",
+      "size_bytes": 44,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "python",
+      "path": "handoffkit/__init__.py",
+      "role": "Python package source.",
+      "size_bytes": 20,
+      "symbols": []
+    },
+    {
+      "depends_on": [
+        "docs/PROJECT_CONTEXT.md",
+        "docs/NOW.md",
+        "docs/SESSION_NOTES.md",
+        "SPEC.md",
+        "docs/INVARIANTS.md"
+      ],
+      "kind": "python",
+      "path": "handoffkit/__main__.py",
+      "role": "CLI entry point, prompt/context pack builder, session lifecycle, preflight, and repo map generation.",
+      "size_bytes": 47567,
+      "symbols": [
+        "approx_tokens",
+        "read_text",
+        "strip_frontmatter",
+        "resolve_path",
+        "read_artifact_file",
+        "find_project_root",
+        "extract_summary_block",
+        "tail_lines",
+        "truncate_text",
+        "read_optional_input",
+        "load_config",
+        "load_role_prompt",
+        "read_baseline_section",
+        "build_context_pack",
+        "run_git",
+        "git_status_porcelain_lines",
+        "git_diff_name_status_vs_head",
+        "print_startup_checks",
+        "has_uncommitted_changes_for_path",
+        "missing_writeback_files",
+        "preflight_report",
+        "git_head_sha",
+        "current_branch",
+        "should_index_path",
+        "list_project_files",
+        "file_kind",
+        "infer_file_role",
+        "python_symbols",
+        "infer_dependencies",
+        "app_intent",
+        "build_code_index",
+        "render_repo_map",
+        "update_repo_map",
+        "print_session_start",
+        "print_session_end",
+        "commit_session",
+        "parse_args",
+        "main"
+      ]
+    },
+    {
+      "depends_on": [],
+      "kind": "configuration",
+      "path": "handoffkit/handoffkit.config.json",
+      "role": "Python package source.",
+      "size_bytes": 561,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "handoffkit/templates/architect.md",
+      "role": "Fallback role prompt template bundled with the package.",
+      "size_bytes": 1701,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "handoffkit/templates/coder.md",
+      "role": "Fallback role prompt template bundled with the package.",
+      "size_bytes": 1341,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "handoffkit/templates/polish.md",
+      "role": "Fallback role prompt template bundled with the package.",
+      "size_bytes": 1014,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "handoffkit/templates/qa_tester.md",
+      "role": "Fallback role prompt template bundled with the package.",
+      "size_bytes": 1285,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "handoffkit/templates/reviewer.md",
+      "role": "Fallback role prompt template bundled with the package.",
+      "size_bytes": 1584,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "configuration",
+      "path": "handoffkit.config.json",
+      "role": "Repository file.",
+      "size_bytes": 561,
+      "symbols": []
+    },
+    {
+      "depends_on": [],
+      "kind": "configuration",
+      "path": "pyproject.toml",
+      "role": "Python package metadata and console script configuration.",
+      "size_bytes": 466,
+      "symbols": []
+    },
+    {
+      "depends_on": [
+        ".github/agents/*.agent.md",
+        "handoffkit/templates/*.md",
+        "docs/AGENT_SESSION_PROTOCOL.md"
+      ],
+      "kind": "python",
+      "path": "scripts/check_guardrails.py",
+      "role": "Consistency checks for agent prompts, templates, and protocol guardrails.",
+      "size_bytes": 3184,
+      "symbols": [
+        "read_text",
+        "check_markers",
+        "main"
+      ]
+    },
+    {
+      "depends_on": [],
+      "kind": "documentation",
+      "path": "skills/local-context-kit/SKILL.md",
+      "role": "Repository file.",
+      "size_bytes": 2139,
+      "symbols": []
+    },
+    {
+      "depends_on": [
+        "handoffkit/__main__.py",
+        "scripts/check_guardrails.py"
+      ],
+      "kind": "python",
+      "path": "tests/test_guardrail_script.py",
+      "role": "Automated test coverage for CLI and guardrail behavior.",
+      "size_bytes": 615,
+      "symbols": [
+        "GuardrailScriptTests"
+      ]
+    },
+    {
+      "depends_on": [
+        "handoffkit/__main__.py",
+        "scripts/check_guardrails.py"
+      ],
+      "kind": "python",
+      "path": "tests/test_repo_map.py",
+      "role": "Automated test coverage for CLI and guardrail behavior.",
+      "size_bytes": 3651,
+      "symbols": [
+        "RepoMapTests"
+      ]
+    },
+    {
+      "depends_on": [
+        "handoffkit/__main__.py",
+        "scripts/check_guardrails.py"
+      ],
+      "kind": "python",
+      "path": "tests/test_required_artifacts.py",
+      "role": "Automated test coverage for CLI and guardrail behavior.",
+      "size_bytes": 3950,
+      "symbols": [
+        "RequiredArtifactTests"
+      ]
+    },
+    {
+      "depends_on": [
+        "handoffkit/__main__.py",
+        "scripts/check_guardrails.py"
+      ],
+      "kind": "python",
+      "path": "tests/test_session_guardrails.py",
+      "role": "Automated test coverage for CLI and guardrail behavior.",
+      "size_bytes": 4846,
+      "symbols": [
+        "SessionGuardrailTests",
+        "SessionStartCliTests"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "source_files_scanned": [
+    ".githooks/pre-commit",
+    ".github/agents/architect.agent.md",
+    ".github/agents/coder.agent.md",
+    ".github/agents/polish.agent.md",
+    ".github/agents/qa.agent.md",
+    ".github/agents/reviewer.agent.md",
+    ".github/workflows/guardrails.yml",
+    ".gitignore",
+    ".vscode/settings.json",
+    ".vscode/tasks.json",
+    "README.md",
+    "REPO_README.md",
+    "SPEC.md",
+    "docs/AGENT_SESSION_PROTOCOL.md",
+    "docs/INVARIANTS.md",
+    "docs/MCP_LOCAL_DESIGN.md",
+    "docs/NOW.md",
+    "docs/PERSISTENT_AGENT_WORKFLOW.md",
+    "docs/PROJECT_CONTEXT.md",
+    "docs/Repo_Structure.md",
+    "docs/SESSION_NOTES.md",
+    "docs/local-mcp-context-kit.code-workspace",
+    "handoffkit/__init__.py",
+    "handoffkit/__main__.py",
+    "handoffkit/handoffkit.config.json",
+    "handoffkit/templates/architect.md",
+    "handoffkit/templates/coder.md",
+    "handoffkit/templates/polish.md",
+    "handoffkit/templates/qa_tester.md",
+    "handoffkit/templates/reviewer.md",
+    "handoffkit.config.json",
+    "pyproject.toml",
+    "scripts/check_guardrails.py",
+    "skills/local-context-kit/SKILL.md",
+    "tests/test_guardrail_script.py",
+    "tests/test_repo_map.py",
+    "tests/test_required_artifacts.py",
+    "tests/test_session_guardrails.py"
+  ],
+  "working_tree": "dirty"
+}

@@ -5,16 +5,16 @@
 
 <!-- SUMMARY_START -->
 **Current Focus (auto-maintained by Agent):**
-- Enforce SPEC + Invariants in handoff packs and validate with preflight.
-- Update memory docs to reflect new requirements and workflow.
-- Add tests for handoffkit preflight and context pack behavior.
+- Repo map/index generation is implemented and covered by tests.
+- Repo-local Codex skill draft now packages the map-first workflow.
+- Review token budget defaults for 16k-32k offline model usage.
 <!-- SUMMARY_END -->
 
 ---
 
 ## Current Objective
 
-Harden handoff requirements (SPEC + Invariants) and add validation/tests to reduce drift.
+Tune defaults for practical local model usage and decide whether to install/distribute the skill.
 
 ---
 
@@ -26,16 +26,16 @@ Harden handoff requirements (SPEC + Invariants) and add validation/tests to redu
 
 ## What We Are Working On Right Now
 
-- [ ] Add tests for `handoffkit preflight` and required-artifact handling.
-- [ ] Run `handoffkit preflight` and validate a full start/end session flow.
+- [x] Add tests for `handoffkit preflight` and required-artifact handling.
+- [x] Add `handoffkit map update` and generated repo map/index artifacts.
+- [x] Package map-first startup/writeback rules as a Codex skill draft.
 - [ ] Review token budget defaults for 16k–32k offline model usage.
 
 ---
 
 ## Next Small Deliverables
 
-- Minimal test coverage for preflight + SPEC/INVARIANTS inclusion.
-- A validation note for the CLI session flow (start/end + preflight).
+- Decide how to install/distribute `skills/local-context-kit/SKILL.md`.
 - Optional token-budget adjustments if needed.
 
 ---

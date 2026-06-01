@@ -16,7 +16,7 @@ We treat `docs/` as a small set of memory layers:
 - **Long-term memory (LTM)**: `docs/PROJECT_CONTEXT.md` (constraints, design, decisions)
 - **Working memory (WM)**: `docs/NOW.md` (current focus, next steps)
 - **Session memory (SM)**: `docs/SESSION_NOTES.md` (append-only timeline)
-- **Index/meta memory (IM)** (optional): future extensions (indexes, search, embeddings)
+- **Index/meta memory (IM)**: `docs/REPO_MAP.generated.md` and `docs/CODE_INDEX.generated.json` (generated repo structure, file roles, and symbols)
 
 ## Summary Blocks
 Some docs include an agent-maintained summary block:
@@ -44,7 +44,8 @@ Flow:
 - `handoffkit` runs startup drift checks (`git status --porcelain`, `git diff --name-status HEAD --`).
 - CLI prints a `SESSION START` prompt.
 - You paste the prompt into the agent.
-- The agent reads `PROJECT_CONTEXT` → `NOW` → recent `SESSION_NOTES`, then summarizes context.
+- The agent reads `PROJECT_CONTEXT` -> `NOW` -> generated `REPO_MAP` if present -> recent `SESSION_NOTES`, then summarizes context.
+- The repo map tells the agent where to inspect first; source code remains authoritative for behavior.
 
 ### End Session (“Writeback + Checkpoint”)
 Triggered via VS Code `End Session (Agent + Commit)` or:
@@ -65,7 +66,7 @@ Flow:
 ## Extensions (Optional)
 If you extend the kit, keep the core principles (human-readable, Git-versioned, editor-native). Common additions:
 - Per-branch session notes (e.g., `SESSION_NOTES_main.md`)
-- A small context index file (e.g., `context_index.json`)
+- A generated context index file beyond `docs/CODE_INDEX.generated.json`
 - Local search or embeddings tooling (kept out of the critical path)
 
 ## Design Philosophy

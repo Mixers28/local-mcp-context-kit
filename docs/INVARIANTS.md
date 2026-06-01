@@ -5,5 +5,6 @@
 - Use explicit start/end session rituals for context hydration and writeback.
 - Enforce startup drift checks before agents read memory docs.
 - Require NOW + SESSION_NOTES writeback checkpoints before session commit.
+- Use generated repo maps to guide code inspection; source code remains authoritative.
 
-Last reviewed: 2026-02-25
+Last reviewed: 2026-06-02

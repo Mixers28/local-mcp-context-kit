@@ -10,6 +10,7 @@ Define how a human and a local code agent coordinate using this repo’s memory 
 - Long-term memory (LTM): `docs/PROJECT_CONTEXT.md`
 - Working memory (WM): `docs/NOW.md`
 - Session memory (SM): `docs/SESSION_NOTES.md`
+- Index/meta memory (IM): `docs/REPO_MAP.generated.md`, `docs/CODE_INDEX.generated.json`
 - Design notes: `docs/MCP_LOCAL_DESIGN.md`
 
 ## Canonical Artifact
@@ -24,9 +25,11 @@ Every handoff prompt must include:
 - Invariants (non-negotiables)
 - SPEC.md (full or excerpt)
 - Only relevant code snippets/diff
+- Generated repo map when available
 
 Reviewer rule:
 - Reviewer must not redesign; only evaluate against SPEC.md, best practices, and current docs (Context7).
+- Context docs and generated maps guide where to look; source code remains authoritative.
 
 ## Start Session (Context Hydration)
 Preferred: VS Code task `Start Session (Agent - Coder)` (or pick another role; see `.vscode/tasks.json`).
@@ -34,6 +37,11 @@ Preferred: VS Code task `Start Session (Agent - Coder)` (or pick another role; s
 Preflight (recommended):
 ```bash
 handoffkit preflight
+```
+
+Refresh repo map when structure or responsibilities changed:
+```bash
+handoffkit map update
 ```
 
 CLI equivalent:
@@ -48,9 +56,10 @@ Startup checks (MANDATORY before reading docs):
 4. Continue only after working tree is clean or explicitly acknowledged by the user.
 
 Agent instructions after startup checks:
-1. Read (in order): `docs/PROJECT_CONTEXT.md`, `docs/NOW.md`, `docs/SESSION_NOTES.md` (recent).
-2. Summarize context in 3–6 bullets.
-3. Wait for the next instruction.
+1. Read (in order): `docs/PROJECT_CONTEXT.md`, `docs/NOW.md`, `docs/REPO_MAP.generated.md` if present, `docs/SESSION_NOTES.md` (recent).
+2. Use the repo map to decide which source files to inspect first.
+3. Summarize context in 3–6 bullets.
+4. Wait for the next instruction.
 
 ## End Session (Writeback + Checkpoint)
 Preferred: VS Code task `End Session (Agent + Commit)` (see `.vscode/tasks.json`).
@@ -70,6 +79,7 @@ Writeback expectations:
 - `docs/PROJECT_CONTEXT.md`: update only when higher-level decisions/constraints changed; refresh summary blocks if present.
 - `docs/NOW.md`: update immediate next steps and current focus; refresh summary blocks if present.
 - `docs/SESSION_NOTES.md`: append a new dated entry (do not overwrite previous entries).
+- `docs/REPO_MAP.generated.md` / `docs/CODE_INDEX.generated.json`: regenerate with `handoffkit map update` after module moves, new entry points, or changed file responsibilities.
 
 Commit safety behavior (`handoffkit session end --commit`):
 - Requires `docs/NOW.md` and `docs/SESSION_NOTES.md` to be modified before commit.

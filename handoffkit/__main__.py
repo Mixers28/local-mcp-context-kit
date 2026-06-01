@@ -1,4 +1,4 @@
-import argparse, json, sys
+import argparse, ast, json, sys
 import shutil
 import subprocess
 from datetime import datetime
@@ -90,6 +90,8 @@ ROLE_CHOICES = ["architect", "coder", "reviewer", "qa_tester", "polish", "qa"]
 SESSION_ROLE_CHOICES = ["Architect", "Coder", "Reviewer", "QA"]
 SESSION_REQUIRED_WRITEBACK_FILES = ["docs/NOW.md", "docs/SESSION_NOTES.md"]
 SESSION_STAGE_FILES = ["docs/NOW.md", "docs/SESSION_NOTES.md", "docs/PROJECT_CONTEXT.md"]
+DEFAULT_REPO_MAP_FILE = "docs/REPO_MAP.generated.md"
+DEFAULT_CODE_INDEX_FILE = "docs/CODE_INDEX.generated.json"
 
 def read_optional_input(path_str: Optional[str], *, project_root: Path, label: str) -> Optional[str]:
     """Read optional content from a file path or stdin.
@@ -155,6 +157,8 @@ def load_config(project_root: Path, tool_root: Path, config_path: Optional[str])
         "protocol_tail_lines": 120,
         "spec_file": "SPEC.md",
         "invariants_file": "docs/INVARIANTS.md",
+        "repo_map_file": DEFAULT_REPO_MAP_FILE,
+        "code_index_file": DEFAULT_CODE_INDEX_FILE,
         "require_spec": False,
         "require_invariants": False,
         "auto_include_spec": True,
@@ -246,6 +250,13 @@ def build_context_pack(
             sections.append(("PROJECT_CONTEXT", rel, 50))
 
     # Session notes (tail)
+    repo_map_rel = cfg.get("repo_map_file", DEFAULT_REPO_MAP_FILE)
+    if repo_map_rel:
+        repo_map_path = project_root / repo_map_rel
+        if repo_map_path.exists():
+            repo_map = truncate_text(read_text(repo_map_path), 700)
+            sections.append((repo_map_rel, repo_map, 45))
+
     sn_rel = cfg.get("session_notes_file")
     if sn_rel:
         sn_path = project_root / sn_rel
@@ -363,7 +374,7 @@ def build_context_pack(
         render_order.append(invariants_title or "Invariants")
     if spec_content:
         render_order.append(spec_title or "SPEC.md")
-    render_order.extend(["docs/NOW.md", "docs/PROJECT_CONTEXT.md", "Recent SESSION_NOTES", "AGENT_SESSION_PROTOCOL", "Selection", "Diff"])
+    render_order.extend(["docs/NOW.md", "docs/PROJECT_CONTEXT.md", DEFAULT_REPO_MAP_FILE, "Recent SESSION_NOTES", "AGENT_SESSION_PROTOCOL", "Selection", "Diff"])
     # Map titles
     rendered = []
     for wanted in render_order:
@@ -523,15 +534,272 @@ def preflight_report(project_root: Path, cfg: Dict) -> int:
         print("Preflight OK.")
     return 1 if issues else 0
 
+def git_head_sha(project_root: Path) -> str:
+    try:
+        return run_git(["rev-parse", "--short", "HEAD"], cwd=project_root, capture=True).strip()
+    except RuntimeError:
+        return ""
+
 def current_branch(project_root: Path) -> str:
     try:
         return run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_root, capture=True).strip()
     except RuntimeError:
         return ""
 
+def should_index_path(rel_path: Path) -> bool:
+    parts = rel_path.parts
+    excluded_dirs = {".git", ".venv", "__pycache__", ".mypy_cache", ".pytest_cache", "node_modules", "dist", "build"}
+    if any(part in excluded_dirs for part in parts):
+        return False
+    rel = rel_path.as_posix()
+    if rel in {DEFAULT_REPO_MAP_FILE, DEFAULT_CODE_INDEX_FILE}:
+        return False
+    if rel.endswith((".pyc", ".pyo", ".DS_Store")):
+        return False
+    return True
+
+def list_project_files(project_root: Path) -> List[Path]:
+    try:
+        out = run_git(
+            ["ls-files", "--cached", "--others", "--exclude-standard"],
+            cwd=project_root,
+            capture=True,
+        )
+        rels = [line.strip() for line in out.splitlines() if line.strip()]
+        if rels:
+            return sorted(Path(rel) for rel in rels if should_index_path(Path(rel)))
+    except RuntimeError:
+        pass
+
+    files: List[Path] = []
+    for path in project_root.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            rel = path.relative_to(project_root)
+        except ValueError:
+            continue
+        if should_index_path(rel):
+            files.append(rel)
+    return sorted(files)
+
+def file_kind(rel_path: Path) -> str:
+    rel = rel_path.as_posix()
+    suffix = rel_path.suffix.lower()
+    if rel.startswith("docs/") or suffix in {".md", ".mdx"}:
+        return "documentation"
+    if suffix == ".py":
+        return "python"
+    if suffix in {".json", ".toml", ".yaml", ".yml"}:
+        return "configuration"
+    if rel.startswith(".github/"):
+        return "automation"
+    return "other"
+
+def infer_file_role(rel_path: Path) -> str:
+    rel = rel_path.as_posix()
+    roles = {
+        "handoffkit/__main__.py": "CLI entry point, prompt/context pack builder, session lifecycle, preflight, and repo map generation.",
+        "pyproject.toml": "Python package metadata and console script configuration.",
+        "scripts/check_guardrails.py": "Consistency checks for agent prompts, templates, and protocol guardrails.",
+        "SPEC.md": "Canonical project specification used in handoff packs.",
+        "README.md": "Primary user-facing usage documentation.",
+        "docs/PROJECT_CONTEXT.md": "Long-term project memory: intent, constraints, architecture, and stable decisions.",
+        "docs/NOW.md": "Working memory: current focus, active branch, and next actions.",
+        "docs/SESSION_NOTES.md": "Append-only session memory and recent outcomes.",
+        "docs/AGENT_SESSION_PROTOCOL.md": "Start/end session protocol and writeback rules.",
+        "docs/INVARIANTS.md": "Non-negotiable workflow constraints.",
+    }
+    if rel in roles:
+        return roles[rel]
+    if rel.startswith("tests/"):
+        return "Automated test coverage for CLI and guardrail behavior."
+    if rel.startswith(".github/agents/"):
+        return "Role-specific GitHub/Copilot agent prompt."
+    if rel.startswith("handoffkit/templates/"):
+        return "Fallback role prompt template bundled with the package."
+    if rel.startswith(".github/workflows/"):
+        return "GitHub Actions workflow."
+    if rel.startswith(".vscode/"):
+        return "VS Code workspace/task configuration for local workflows."
+    if rel.startswith("docs/"):
+        return "Project documentation or memory file."
+    if rel.startswith("handoffkit/"):
+        return "Python package source."
+    return "Repository file."
+
+def python_symbols(path: Path) -> List[str]:
+    try:
+        tree = ast.parse(read_text(path))
+    except (SyntaxError, UnicodeDecodeError):
+        return []
+    symbols: List[str] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            symbols.append(node.name)
+    return symbols
+
+def infer_dependencies(rel_path: Path) -> List[str]:
+    rel = rel_path.as_posix()
+    if rel == "handoffkit/__main__.py":
+        return [
+            "docs/PROJECT_CONTEXT.md",
+            "docs/NOW.md",
+            "docs/SESSION_NOTES.md",
+            "SPEC.md",
+            "docs/INVARIANTS.md",
+        ]
+    if rel == "scripts/check_guardrails.py":
+        return [
+            ".github/agents/*.agent.md",
+            "handoffkit/templates/*.md",
+            "docs/AGENT_SESSION_PROTOCOL.md",
+        ]
+    if rel.startswith("tests/"):
+        return ["handoffkit/__main__.py", "scripts/check_guardrails.py"]
+    return []
+
+def app_intent(project_root: Path) -> str:
+    for rel in ("SPEC.md", "docs/PROJECT_CONTEXT.md"):
+        path = project_root / rel
+        if not path.exists():
+            continue
+        raw = read_text(path)
+        text = extract_summary_block(raw) or raw
+        lines = [line.strip().lstrip("> ").strip(" -") for line in text.splitlines() if line.strip() and not line.startswith("#")]
+        if lines:
+            intent = " ".join(lines[:4])
+            return truncate_text(intent, 120).replace("\n", " ")
+    return "No app intent found. Update SPEC.md or docs/PROJECT_CONTEXT.md."
+
+def build_code_index(project_root: Path, files: List[Path]) -> Dict:
+    modules = []
+    for rel_path in files:
+        abs_path = project_root / rel_path
+        entry = {
+            "path": rel_path.as_posix(),
+            "kind": file_kind(rel_path),
+            "role": infer_file_role(rel_path),
+            "size_bytes": abs_path.stat().st_size if abs_path.exists() else 0,
+            "symbols": python_symbols(abs_path) if rel_path.suffix == ".py" else [],
+            "depends_on": infer_dependencies(rel_path),
+        }
+        modules.append(entry)
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "generated_from_commit": git_head_sha(project_root),
+        "working_tree": "dirty" if git_status_porcelain_lines(project_root) else "clean",
+        "branch": current_branch(project_root),
+        "source_files_scanned": [p.as_posix() for p in files],
+        "modules": modules,
+    }
+
+def render_repo_map(index: Dict, *, app_intent_text: str, code_index_file: str) -> str:
+    modules = index["modules"]
+    entry_paths = [
+        "handoffkit/__main__.py",
+        "scripts/check_guardrails.py",
+        "SPEC.md",
+        "docs/PROJECT_CONTEXT.md",
+        "docs/NOW.md",
+        "docs/SESSION_NOTES.md",
+    ]
+    by_path = {module["path"]: module for module in modules}
+    groups = [
+        ("Python Package", lambda m: m["path"].startswith("handoffkit/") and m["kind"] == "python"),
+        ("Docs And Memory", lambda m: m["path"].startswith("docs/") or m["path"] in {"SPEC.md", "README.md"}),
+        ("Guardrails And Automation", lambda m: m["path"].startswith("scripts/") or m["path"].startswith(".github/workflows/")),
+        ("Agent Prompts And Templates", lambda m: m["path"].startswith(".github/agents/") or m["path"].startswith("handoffkit/templates/")),
+        ("Tests", lambda m: m["path"].startswith("tests/")),
+        ("Editor And Package Config", lambda m: m["path"].startswith(".vscode/") or m["path"] == "pyproject.toml" or m["path"].endswith(".json")),
+    ]
+
+    lines = [
+        "# Repo Map",
+        "",
+        f"Generated from commit: {index.get('generated_from_commit') or 'unknown'}",
+        f"Generated at: {index.get('generated_at')}",
+        f"Branch: {index.get('branch') or 'unknown'}",
+        f"Working tree: {index.get('working_tree') or 'unknown'}",
+        f"Source files scanned: {len(index.get('source_files_scanned', []))}",
+        f"Machine-readable index: `{code_index_file}`",
+        "",
+        "## App Intent",
+        app_intent_text,
+        "",
+        "## Main Entry Points",
+    ]
+    for path in entry_paths:
+        module = by_path.get(path)
+        if module:
+            lines.append(f"- `{path}` - {module['role']}")
+
+    lines.extend(["", "## Core Modules"])
+    emitted = set()
+    for title, predicate in groups:
+        matches = [module for module in modules if predicate(module)]
+        if not matches:
+            continue
+        lines.extend(["", f"### {title}"])
+        for module in matches:
+            emitted.add(module["path"])
+            symbol_text = ""
+            if module["symbols"]:
+                symbol_text = f" Symbols: {', '.join(module['symbols'][:8])}."
+            lines.append(f"- `{module['path']}` - {module['role']}{symbol_text}")
+
+    leftovers = [module for module in modules if module["path"] not in emitted]
+    if leftovers:
+        lines.extend(["", "### Other"])
+        for module in leftovers:
+            lines.append(f"- `{module['path']}` - {module['role']}")
+
+    lines.extend(
+        [
+            "",
+            "## Workflows",
+            "- Start session: run `handoffkit session start`, then read context docs and this repo map before source files.",
+            "- End session: run `handoffkit session end`, update NOW and SESSION_NOTES, then checkpoint/commit if requested.",
+            "- Prompt compile: run `handoffkit <role> <instruction>` to build a token-budgeted handoff pack.",
+            "- Repo map refresh: run `handoffkit map update` after module moves, new entry points, or responsibility changes.",
+            "",
+            "## Files To Inspect Before Changing",
+            "- Session behavior or prompt packing: `handoffkit/__main__.py`, `tests/test_session_guardrails.py`, `tests/test_required_artifacts.py`.",
+            "- Guardrail wording or required markers: `scripts/check_guardrails.py`, `.github/agents/*.agent.md`, `handoffkit/templates/*.md`, `docs/AGENT_SESSION_PROTOCOL.md`.",
+            "- Memory protocol: `docs/PROJECT_CONTEXT.md`, `docs/NOW.md`, `docs/SESSION_NOTES.md`, `docs/INVARIANTS.md`.",
+            "- Packaging or CLI entry point: `pyproject.toml`, `handoffkit/__main__.py`.",
+            "",
+            "## Grounding Rule",
+            "Use this map to decide where to inspect first. Source code remains authoritative for behavior.",
+        ]
+    )
+    return "\n".join(lines).strip() + "\n"
+
+def update_repo_map(project_root: Path, *, repo_map_file: str = DEFAULT_REPO_MAP_FILE, code_index_file: str = DEFAULT_CODE_INDEX_FILE) -> Tuple[Path, Path, int]:
+    files = list_project_files(project_root)
+    index = build_code_index(project_root, files)
+    markdown = render_repo_map(index, app_intent_text=app_intent(project_root), code_index_file=code_index_file)
+
+    index_path = resolve_path(code_index_file, project_root)
+    map_path = resolve_path(repo_map_file, project_root)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    map_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    map_path.write_text(markdown, encoding="utf-8")
+    return map_path, index_path, len(files)
+
 def print_session_start(project_root: Path, agent_role: str, open_docs: bool) -> None:
     agent_role_slug = agent_role.lower()
     agent_role_file = f".github/agents/{agent_role_slug}.agent.md"
+    repo_map_exists = (project_root / DEFAULT_REPO_MAP_FILE).exists()
+    read_files = [
+        "docs/PROJECT_CONTEXT.md",
+        "docs/NOW.md",
+    ]
+    if repo_map_exists:
+        read_files.append(DEFAULT_REPO_MAP_FILE)
+    read_files.append("docs/SESSION_NOTES.md")
 
     print("Local MCP – Start Session")
     print("")
@@ -562,9 +830,9 @@ def print_session_start(project_root: Path, agent_role: str, open_docs: bool) ->
         "   - Continue only when clean or explicitly acknowledged by the user.",
         "",
         "2. Read these files in this order:",
-        "   - docs/PROJECT_CONTEXT.md",
-        "   - docs/NOW.md",
-        "   - docs/SESSION_NOTES.md",
+        *[f"   - {rel}" for rel in read_files],
+        "",
+        "   Use the repo map to decide where to inspect code first; source code remains authoritative.",
         "",
         "3. Summarise the current context in 3–6 bullet points so we both know you understood it.",
         "",
@@ -576,18 +844,15 @@ def print_session_start(project_root: Path, agent_role: str, open_docs: bool) ->
         print("")
         if shutil.which("code"):
             print("Opening docs in VS Code...")
-            subprocess.run(
-                [
-                    "code",
-                    agent_role_file,
-                    "docs/PROJECT_CONTEXT.md",
-                    "docs/NOW.md",
-                    "docs/SESSION_NOTES.md",
-                    "docs/AGENT_SESSION_PROTOCOL.md",
-                ],
-                cwd=project_root,
-                check=False,
-            )
+            files_to_open = [
+                agent_role_file,
+                "docs/PROJECT_CONTEXT.md",
+                "docs/NOW.md",
+                *([DEFAULT_REPO_MAP_FILE] if repo_map_exists else []),
+                "docs/SESSION_NOTES.md",
+                "docs/AGENT_SESSION_PROTOCOL.md",
+            ]
+            subprocess.run(["code", *files_to_open], cwd=project_root, check=False)
         else:
             print("VS Code 'code' CLI not found; open docs manually.")
 
@@ -717,6 +982,14 @@ def parse_args(argv: Optional[List[str]] = None):
     preflight_parser.add_argument("--root", default=".", help="Path to (or inside) your project root. Can be run from anywhere.")
     preflight_parser.add_argument("--config", default=None, help="Path to config JSON (optional). If omitted, auto-discovered.")
 
+    map_parser = subparsers.add_parser("map", help="Generate or inspect repo maps")
+    map_subparsers = map_parser.add_subparsers(dest="map_command", required=True)
+
+    map_update_parser = map_subparsers.add_parser("update", help="Generate repo map and machine-readable code index")
+    map_update_parser.add_argument("--root", default=".", help="Path to (or inside) your project root. Can be run from anywhere.")
+    map_update_parser.add_argument("--repo-map", default=DEFAULT_REPO_MAP_FILE, help="Output path for generated Markdown repo map")
+    map_update_parser.add_argument("--code-index", default=DEFAULT_CODE_INDEX_FILE, help="Output path for generated JSON code index")
+
     if argv is None:
         argv = sys.argv[1:]
     if argv and argv[0] in ROLE_CHOICES:
@@ -764,6 +1037,21 @@ def main():
         tool_root = Path(__file__).resolve().parent
         cfg = load_config(project_root, tool_root, args.config)
         sys.exit(preflight_report(project_root, cfg))
+
+    if args.command == "map":
+        invocation_root = Path(args.root).resolve()
+        project_root = find_project_root(invocation_root)
+        if args.map_command == "update":
+            map_path, index_path, scanned = update_repo_map(
+                project_root,
+                repo_map_file=args.repo_map,
+                code_index_file=args.code_index,
+            )
+            print("Repo map updated.")
+            print(f"- Markdown: {map_path.as_posix()}")
+            print(f"- JSON: {index_path.as_posix()}")
+            print(f"- Source files scanned: {scanned}")
+            return
 
     invocation_root = Path(args.root).resolve()
 

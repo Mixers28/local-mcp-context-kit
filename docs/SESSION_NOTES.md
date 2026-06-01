@@ -5,9 +5,10 @@
 
 <!-- SUMMARY_START -->
 **Latest Summary (auto-maintained by Agent):**
-- Added required SPEC + Invariants to handoff packs and a `preflight` validation command.
-- Updated docs and templates to reflect the new requirements and workflow.
-- Next step is adding tests and validating the full session flow.
+- Added generated repo map/index support with `handoffkit map update`.
+- Startup prompts and handoff packs now use `docs/REPO_MAP.generated.md` when present.
+- Added a repo-local Codex skill draft for the map-first workflow.
+- Next step is deciding skill installation/distribution and reviewing token-budget defaults.
 <!-- SUMMARY_END -->
 
 ---
@@ -51,6 +52,61 @@
 
 ## Session Template (Copy/Paste for each new session)
 ## Recent Sessions (last 3-5)
+
+### 2026-06-02 (Repo map)
+
+**Participants:** User, Codex Agent  
+**Branch:** main  
+
+### What we worked on
+- Implemented `handoffkit map update`.
+- Generated `docs/REPO_MAP.generated.md` and `docs/CODE_INDEX.generated.json`.
+- Updated startup/read-order docs so agents consult the repo map before source scans.
+- Added `skills/local-context-kit/SKILL.md` as a repo-local Codex skill draft.
+- Added tests for repo map generation, CLI output, startup prompt behavior, and required artifacts.
+
+### Files touched
+- handoffkit/__main__.py
+- handoffkit.config.json
+- handoffkit/handoffkit.config.json
+- tests/test_repo_map.py
+- tests/test_required_artifacts.py
+- docs/REPO_MAP.generated.md
+- docs/CODE_INDEX.generated.json
+- README.md
+- SPEC.md
+- docs/PROJECT_CONTEXT.md
+- docs/NOW.md
+- docs/SESSION_NOTES.md
+- docs/AGENT_SESSION_PROTOCOL.md
+- docs/MCP_LOCAL_DESIGN.md
+- docs/INVARIANTS.md
+- skills/local-context-kit/SKILL.md
+
+### Outcomes / Decisions
+- Repo maps are generated artifacts, not hand-written truth.
+- Context docs and maps guide where to inspect first; source code remains authoritative.
+- `python3 scripts/check_guardrails.py`, `python3 -m unittest discover -s tests -p 'test_*.py'`, and `python3 -m handoffkit preflight --root .` passed.
+
+### 2026-06-02
+
+**Participants:** User, Codex Agent  
+**Branch:** main  
+
+### What we worked on
+- Cloned the repository into the local workspace.
+- Added focused tests for `handoffkit preflight` and required SPEC/Invariants handling.
+- Verified that role handoff packs include required artifacts and reject `--no-spec` when SPEC is required.
+
+### Files touched
+- tests/test_required_artifacts.py
+- docs/NOW.md
+- docs/SESSION_NOTES.md
+
+### Outcomes / Decisions
+- Guardrail checks passed.
+- `python3 -m unittest discover -s tests -p 'test_*.py'` passed with 11 tests.
+- Full start/end session validation and token-budget review remain the next active tasks.
 
 ### 2026-02-04
 

@@ -10,6 +10,8 @@
   "protocol_tail_lines": 120,
   "spec_file": "SPEC.md",
   "invariants_file": "docs/INVARIANTS.md",
+  "repo_map_file": "docs/REPO_MAP.generated.md",
+  "code_index_file": "docs/CODE_INDEX.generated.json",
   "require_spec": true,
   "require_invariants": true,
   "auto_include_spec": true,

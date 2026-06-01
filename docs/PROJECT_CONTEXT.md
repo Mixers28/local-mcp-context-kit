@@ -7,7 +7,9 @@
 **Summary (auto-maintained by Agent):**
 - Template repo proving Markdown + Git can store long-lived memory for AI coding agents.
 - Workflow stays local inside VS Code + handoffkit CLI; no backend dependencies.
-- Handoff packs now require SPEC + Invariants and support preflight checks to prevent drift.
+- Handoff packs require SPEC + Invariants, support preflight checks, and include generated repo maps when present.
+- `handoffkit map update` generates repo structure/index metadata to reduce repeated source discovery.
+- A repo-local Codex skill draft packages the map-first workflow without replacing CLI tooling.
 - Drift guardrails: keep summaries tight, log decisions here, and keep NOW short and current.
 <!-- SUMMARY_END -->
 
@@ -41,6 +43,7 @@
   - Must remain backend-free and editor-native.
   - Documentation stays in plain Markdown for easy review.
   - Handoffs require SPEC + Invariants to reduce drift.
+  - Generated repo maps guide inspection, but source code remains authoritative.
 
 ---
 
@@ -56,7 +59,9 @@
 ## 5. Architecture Snapshot
 
 - Docs folder holds long-term (PROJECT_CONTEXT), working-memory (NOW), and session logs (SESSION_NOTES).
-- The handoffkit CLI guides agents through start/end rituals and preflight checks.
+- Generated repo map/index files provide index/meta memory for startup context.
+- The handoffkit CLI guides agents through start/end rituals, preflight checks, and repo map generation.
+- The skill file captures the reusable agent protocol while scripts handle deterministic generation/validation.
 - VS Code tasks integrate with the handoffkit CLI so humans/agents share the same workflow.
 
 ---
@@ -68,6 +73,8 @@
 - Specs: SPEC.md, docs/Repo_Structure.md
 - Product / UX docs: docs/PROJECT_CONTEXT.md, docs/NOW.md
 - Invariants: docs/INVARIANTS.md
+- Repo map: docs/REPO_MAP.generated.md, docs/CODE_INDEX.generated.json
+- Skill draft: skills/local-context-kit/SKILL.md
 
 ---
 
@@ -76,5 +83,7 @@
 Use this section for **big decisions** only:
 
 - `2026-02-04` – Require SPEC + Invariants in handoff packs and add preflight validation.
+- `2026-06-02` – Add generated repo map/index artifacts to reduce repeated source discovery.
+- `2026-06-02` – Add repo-local Codex skill draft for the map-first workflow.
 - `YYYY-MM-DD` – Decided on X instead of Y.
 - `YYYY-MM-DD` – Switched primary deployment target to Z.

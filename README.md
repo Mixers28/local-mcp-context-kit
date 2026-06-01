@@ -4,7 +4,7 @@ A tiny **prompt compiler** you can use with *any chat window / any LLM* (Codex, 
 It builds a **token-budgeted Context Pack** from your repo’s memory files and prints a **role handoff prompt** you copy/paste.
 
 This version is adapted to your **local-mcp-context-kit** layout:
-- Reads: `docs/PROJECT_CONTEXT.md`, `docs/NOW.md`, `docs/SESSION_NOTES.md`
+- Reads: `docs/PROJECT_CONTEXT.md`, `docs/NOW.md`, `docs/REPO_MAP.generated.md` (if present), `docs/SESSION_NOTES.md`
 - Includes: `docs/AGENT_SESSION_PROTOCOL.md` (excerpt)
 - If present, uses your repo role prompts: `.github/agents/*.agent.md`
 - Can be run from anywhere inside the repo (auto-finds project root)
@@ -69,6 +69,19 @@ handoffkit polish "One-pass polish for clarity/consistency" --root .
 
 ## Session Flow
 
+### Repo Map
+Generate a lightweight map before starting a new session, or after module moves/new entry points/responsibility changes:
+
+```bash
+handoffkit map update
+```
+
+This writes:
+- `docs/REPO_MAP.generated.md` for human/agent startup reading
+- `docs/CODE_INDEX.generated.json` for machine-readable file roles and Python symbols
+
+The repo map guides where to inspect first; source code remains authoritative.
+
 ### Start Session
 ```bash
 handoffkit session start --agent-role Coder --open-docs
@@ -104,7 +117,9 @@ Example `handoffkit.config.json`:
   "session_notes_file": "docs/SESSION_NOTES.md",
   "session_notes_tail_lines": 120,
   "protocol_file": "docs/AGENT_SESSION_PROTOCOL.md",
-  "protocol_tail_lines": 120
+  "protocol_tail_lines": 120,
+  "repo_map_file": "docs/REPO_MAP.generated.md",
+  "code_index_file": "docs/CODE_INDEX.generated.json"
 }
 ```
 
@@ -113,6 +128,7 @@ Example `handoffkit.config.json`:
 - For best token efficiency, add summary blocks to your memory files:
   - `<!-- SUMMARY_START --> ... <!-- SUMMARY_END -->`
   - Recommended in `docs/PROJECT_CONTEXT.md`, `docs/NOW.md`, and `docs/SESSION_NOTES.md`
+- The repo includes a draft Codex skill at `skills/local-context-kit/SKILL.md` for the map-first startup/writeback workflow.
 - The output ends with **SESSION END – INSTRUCTIONS** telling the agent to include “Session Updates”
   so you can easily update `NOW.md` and `SESSION_NOTES.md` per your protocol.
 
